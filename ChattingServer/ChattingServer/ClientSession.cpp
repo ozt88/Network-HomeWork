@@ -41,9 +41,7 @@ void ClientSession::Disconnect()
 		return;
 	}
 	char message[BUF_SIZE] = {0, };
-
 	sprintf_s(message, "User [ %s ] Disconnected.\n", m_NickName);
-	ClientManager::GetInstance()->SendToAllClient(message, strlen(message));
 	puts(message);
 	m_IsConnected = false;
 

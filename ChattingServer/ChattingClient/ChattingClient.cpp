@@ -188,6 +188,9 @@ unsigned int WINAPI RecvThreadProc(LPVOID argv)
 		packetBuffer.Read(message, messageLength);
 		switch((PacketType)packetHeader.m_PacketType)
 		{
+			case PACKET_NONE:
+				Log(message);
+				break;
 			case PACKET_ENTER:
 				Log("Enter CSTalk");
 				break;
