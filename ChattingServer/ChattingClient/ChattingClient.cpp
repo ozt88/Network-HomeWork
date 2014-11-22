@@ -9,9 +9,9 @@ unsigned int WINAPI SendThreadProc(LPVOID argv);
 unsigned int WINAPI RecvThreadProc(LPVOID argv);
 int					SendMessage(SOCKET socket, char* message, int length);
 int					RecvMessage(SOCKET socket, char* buffer, int length);
-unsigned char		GetPacketSize(SOCKET socket);
 void				ErrorHandling(char* message, DWORD error);
 void				GetInput(char* inputBuffer, unsigned char* inputPointer);
+void				GetPacketHeader(SOCKET socket, OUT PacketHeader* header);
 void				Log(char* message);
 void				PrintLogs();
 void				PrintInput(char* inputBuffer, int length);
@@ -74,7 +74,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		Log("Connected........");
 	}
 
-	hidecursor();
+	Hidecursor();
 	hSendThread = (HANDLE) _beginthreadex(NULL, 0, SendThreadProc, (LPVOID)hServSock, 0, (unsigned*) &dwSendThreadId);
 	if(hSendThread == INVALID_HANDLE_VALUE)
 	{
@@ -171,24 +171,22 @@ unsigned int WINAPI RecvThreadProc(LPVOID argv)
 	SOCKET hServSock = (SOCKET) argv;
 	CustomBuffer packetBuffer(BUF_SIZE);
 	char* message = new char[BUF_SIZE];
-	unsigned short packetSize = 0;
 	unsigned short messageLength = 0;
-	PacketType packetType = PACKET_NONE;
-
+	PacketHeader packetHeader;
 	while(true)
 	{
 		memset(message, 0, sizeof(char)*BUF_SIZE);
-		packetSize = GetPacketSize(hServSock);
-		if(RecvMessage(hServSock, packetBuffer.GetBuffer(), packetSize) == SOCKET_ERROR)
+		GetPacketHeader(hServSock, &packetHeader);
+		messageLength = (unsigned char)(packetHeader.m_BytesTrans) - 2;
+		if(RecvMessage(hServSock, packetBuffer.GetBuffer(), messageLength) == SOCKET_ERROR)
 		{
 			ErrorHandling("RecvMessage(): error!", GetLastError());
 			getchar();
 			exit(1);
 		}
-		packetBuffer.Commit(packetSize);
-		packetBuffer.Read((char*)&packetType, 1);
-		packetBuffer.Read(message, packetSize - 1);
-		switch(packetType)
+		packetBuffer.Commit(messageLength);
+		packetBuffer.Read(message, messageLength);
+		switch((PacketType)packetHeader.m_PacketType)
 		{
 			case PACKET_ENTER:
 				Log("Enter CSTalk");
@@ -224,7 +222,7 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 		}
 		else if(inputChar == '\r')
 		{
-			clearLine(MAX_PRINT_LINE);
+			ClearLine(MAX_PRINT_LINE);
 			inputBuffer[currentPointer] = '\0';
 			*inputPointer = currentPointer;
 			break;
@@ -243,7 +241,7 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 void PrintInput(char* inputBuffer, int length)
 {
 	Lock lock;
-	gotoxy(1, MAX_PRINT_LINE);
+	Gotoxy(1, MAX_PRINT_LINE);
 	printf_s("ME> %s%50c", inputBuffer, ' ', length);
 }
 
@@ -252,8 +250,8 @@ void PrintLogs()
 	Lock lock;
 	for(int i = 0; i < logs.size(); ++i)
 	{
-		clearLine(i + 1);
-		gotoxy(0, i + 1);
+		ClearLine(i + 1);
+		Gotoxy(0, i + 1);
 		printf_s("%s", logs[i], strlen(logs[i]));
 	}
 }
@@ -275,21 +273,20 @@ void Log(char* message)
 	PrintLogs();
 }
 
-unsigned char GetPacketSize(SOCKET socket)
-{
-	unsigned char packetSize = 0;
-	if(RecvMessage(socket, (char*) &packetSize, 1) == SOCKET_ERROR)
-	{
-		ErrorHandling("GetPacketSize(): error!", GetLastError());
-		getchar();
-		exit(1);
-	}
-	return packetSize - 1;
-}
-
 void ErrorHandling(char* message, DWORD error)
 {
 	char errorMessage[BUF_SIZE] = {0, };
 	sprintf_s(errorMessage, "%s error No: %d", message, error);
 	Log(errorMessage);
+}
+
+void GetPacketHeader(SOCKET socket, OUT PacketHeader* header)
+{
+	if(RecvMessage(socket, (char*) header, sizeof(PacketHeader)) == SOCKET_ERROR)
+	{
+		ErrorHandling("GetPacketSize(): error!", GetLastError());
+		getchar();
+		exit(1);
+	}
+	return;
 }

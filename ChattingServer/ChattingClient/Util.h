@@ -15,6 +15,12 @@ enum PacketType
 	PACKET_MAX,
 };
 
+struct PacketHeader
+{
+	unsigned char m_BytesTrans;
+	unsigned char m_PacketType;
+};
+
 struct Lock
 {
 	Lock()
@@ -39,7 +45,7 @@ void SafeDelete(T deletePtr)
 
 bool	GetMessageHeader(char* buffer, OUT DWORD* messageLength, OUT PacketType* packetType, OUT char** message);
 bool	MakeMessageHeader(char* buffer, unsigned char bufferLength, char packetType, OUT char* message);
-void	gotoxy(int x, int y);
+void	Gotoxy(int x, int y);
 void	GetInput(OUT char** buffer);
-void	hidecursor();
-void	clearLine(int lineNum);
+void	Hidecursor();
+void	ClearLine(int lineNum);

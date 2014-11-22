@@ -30,21 +30,23 @@ bool MakeMessageHeader(char* buffer, unsigned char bufferLength, char packetType
 	return true;
 }
 
-void gotoxy(int x, int y)
+void Gotoxy(int x, int y)
 {
 	COORD pos = {x, y};
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
 
-void hidecursor()
+void Hidecursor()
 {
 	CONSOLE_CURSOR_INFO info = {100, FALSE};
 	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info);
 }
 
-void clearLine(int lineNum)
+void ClearLine(int lineNum)
 {
 	Lock lock;
-	gotoxy(0, lineNum);
+	Gotoxy(0, lineNum);
 	printf("%100c", ' ');
 }
+
+

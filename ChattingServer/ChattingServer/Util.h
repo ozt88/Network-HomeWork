@@ -48,6 +48,12 @@ struct IOData
 	Mode			m_Mode;
 };
 
+struct PacketHeader
+{
+	char m_BytesTrans;
+	char m_PacketType;
+};
+
 struct Lock
 {
 	Lock()
