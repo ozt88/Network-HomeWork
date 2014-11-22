@@ -90,7 +90,6 @@ bool ClientSession::SendToClient(char* message, DWORD bytesTrans)
 	ioData->m_Mode = MODE_SEND;
 	wsa_buf.buf = message;
 	wsa_buf.len = bytesTrans;
-	printf("send to %d, message: %s(%d)\n", this->m_NickName, wsa_buf.buf, wsa_buf.len);
 	if(WSASend(m_Socket, &wsa_buf, 1, NULL, 0, &ioData->m_Overlapped, NULL) == SOCKET_ERROR)
 	{
 		DWORD error = WSAGetLastError();
