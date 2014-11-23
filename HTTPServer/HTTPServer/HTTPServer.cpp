@@ -1,4 +1,4 @@
-// HTTPServer.cpp : ÄÜ¼Ö ÀÀ¿ë ÇÁ·Î±×·¥¿¡ ´ëÇÑ ÁøÀÔÁ¡À» Á¤ÀÇÇÕ´Ï´Ù.
+// HTTPServer.cpp : ì½˜ì†” ì‘ìš© í”„ë¡œê·¸ë¨ì— ëŒ€í•œ ì§„ì…ì ì„ ì •ì˜í•©ë‹ˆë‹¤.
 //
 
 #include "stdafx.h"
@@ -35,11 +35,15 @@ int _tmain(int argc, _TCHAR* argv[])
 	else
 	{
 		port = atoi((const char*) argv[1]);
+		// minsuk: we need error processing here, when argv[1] is not the number we want.
 	}
 
 	if(WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 	{
 		ErrorHandling("WSAStartup() error!", GetLastError());
+		// minsuk: GetLastError() may return error code not the human readable, Error String
+		//      Error numbers are not helpfule to understand what happened.
+		//      so, please use perror() or something compatible in Windows.
 		exit(1);
 	}
 
@@ -98,12 +102,16 @@ unsigned int WINAPI RequestHandler(void* argv)
 	char ct[BUF_SMALL] = {0, };
 	char fileName[BUF_SMALL] = {0, };
 	DWORD ret = 0;
+	// minsuk: check the above strings and ret should be initialized here !!
+	
 	if(ret = recv(hClntSock, buf, BUF_SIZE, 0) == SOCKET_ERROR)
 	{
 		ErrorHandling("recv() error!", GetLastError());
 		return 1;
 	}
 	puts("recv() success");
+	// minusk: currently OK, this source assumes that all the request string is arrived one time.
+	//    but if we have 100K cliented in very limited server resource... it may not be true.
 	if(strstr(buf, "HTTP/") == NULL)
 	{
 		SendErrorMSG(hClntSock, ERROR_400_BAD_REQUEST);
@@ -121,11 +129,13 @@ unsigned int WINAPI RequestHandler(void* argv)
 	memmove(fileName + 1, fileName, strlen(fileName));
 	fileName[0] = '.';
 	for(int i = 0; i < strlen(fileName) + 1; ++i)
+	// minsuk: I propose, for(int i = 0; i < strlen(fileName); i++)
 	{
 		if(fileName[i] == '/')
 		{
 			fileName[i] = '\\';
 		}
+		// minsuk: did you check this Windows may allow '/' for directpry traversing
 	}
 
 	char* type = ContentType(fileName);
@@ -138,6 +148,16 @@ unsigned int WINAPI RequestHandler(void* argv)
 
 	strcpy(ct, ContentType(fileName));
 	SendData(hClntSock, ct, fileName);
+	// minsuk: closesocket() should be here, or how about next code sequence?
+	
+	// char* type = ContentType(fileName);
+	// if(type == NULL)
+	//	SendErrorMSG(hClntSock, ERROR_404_NOT_FOUND);
+	// else {
+	//	strcpy(ct, ContentType(fileName));
+	//	SendData(hClntSock, ct, fileName);
+	// }
+	// closesocket(hClntSock);
 	return 0;
 }
 
@@ -183,11 +203,19 @@ void SendData(SOCKET socket, char* ct, char* fileName)
 	{
 		int read = fread(buf, 1, BUF_SIZE, sendFile);
 		send(socket, buf, read, 0);
+		// minsuk: we should check the return value of send() function here
+		//    if this server system handles 10K connections... think what would happen.
 	}
 
 	closesocket(socket);
+	// minsuk: closesocket() is better to be called in requesthandler() function
+	//                where the resource comes from
 	fclose(sendFile);
 }
+
+
+// minsuk: I Propose to move next function to util.cpp
+//     (and change the file nae errorhandling.cpp or somehting like that)
 
 void SendErrorMSG(SOCKET socket, ErrorCode errorCode )
 {
@@ -207,6 +235,11 @@ void SendErrorMSG(SOCKET socket, ErrorCode errorCode )
 			strcpy(errorMessage, "400 Bad Request\r\n");
 			break;
 	}
+	// minsuk: why copy? suft string pointer is OK, char *errorMessagge; errorMessage = "...";
+	
+	// minsuk: error string is quite static - and can be defined in util.h
+	//         and change the file name util.h to errormsg.h or something like that
+	
 	char servName[] = "Server : simple web server\r\n";
 	char cntType[] = "Content-type:text/html\r\n\r\n";
 	sprintf_s(protocol, "HTTP/1.0 %s", errorMessage);
@@ -243,12 +276,15 @@ void SendErrorMSG(SOCKET socket, ErrorCode errorCode )
 	}
 
 	closesocket(socket);
+	// minsuk: closesocket() is better to be called in requesthandler() function
 }
 
 char* ContentType(char* file)
 {
 	char extension[BUF_SIZE] = {0, };
 	char fileName[BUF_SMALL] = {0, };
+	// minsuk: we dont need to initialize two strings here
+	
 	char* ret = nullptr;
 	strcpy(fileName, file);
 	strtok(fileName, ".");
