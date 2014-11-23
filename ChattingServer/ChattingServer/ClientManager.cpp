@@ -30,7 +30,7 @@ bool ClientManager::AddClient(ClientSession* client)
 	auto findIter = std::find(m_ClientSessions.begin(), m_ClientSessions.end(), client);
 	if(findIter != m_ClientSessions.end())
 	{
-		//ÀÌ¹Ì ÀÖÀ¸¸é ½ÇÆĞ
+		//ì´ë¯¸ ìˆìœ¼ë©´ ì‹¤íŒ¨
 		return false;
 	}
 	m_ClientSessions.push_back(client);
@@ -46,7 +46,7 @@ bool ClientManager::RemoveClient(ClientSession* clientSession)
 	auto findIter = std::find(m_ClientSessions.begin(), m_ClientSessions.end(), clientSession);
 	if(findIter == m_ClientSessions.end())
 	{
-		//¾øÀ¸¸é ½ÇÆĞ
+		//ì—†ìœ¼ë©´ ì‹¤íŒ¨
 		return false;
 	}
 	m_ClientSessions.erase(findIter);
@@ -62,6 +62,7 @@ bool ClientManager::SendToAllClient(char* message, DWORD bytesTrans)
 		
 		auto clientSession = *iter;
 		ret = clientSession->SendToClient(message, bytesTrans);
+		// minsuk: check ret is still 'true' or any other value ?
 		if(!ret)
 		{
 			ret = false;
