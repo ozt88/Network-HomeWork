@@ -6,10 +6,8 @@
 bool GetMessageHeader(char* buffer, OUT DWORD* messageLength, OUT PacketType* packetType, OUT char** message)
 {
 	if(buffer == nullptr)
-	{
 		return false;
-	}
-	// minsuk: it looks better if { and } are removed..
+
 	*messageLength = (DWORD)buffer[0];
 	*packetType = (PacketType)buffer[1];
 	*message = buffer + 2;
@@ -19,10 +17,7 @@ bool GetMessageHeader(char* buffer, OUT DWORD* messageLength, OUT PacketType* pa
 bool MakeMessageHeader(char* buffer, unsigned char bufferLength, char packetType, OUT char* message)
 {
 	if(message == nullptr)
-	{
 		return false;
-	}
-	//¹üÀ§ ³Ñ¾î°¡´Â °æ¿ì Ã¼Å©
 
 	memset(message, 0, sizeof(char)*bufferLength);
 	message[0] = bufferLength;

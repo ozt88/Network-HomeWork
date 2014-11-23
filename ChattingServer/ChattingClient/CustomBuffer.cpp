@@ -8,9 +8,7 @@ bool CustomBuffer::Peek(OUT char* buffer, size_t bytes) const
 	{
 		return false;
 	}
-	// minsuk: why dont you remove line 8, 9
 	memcpy(buffer, GetBuffer(), bytes);
-
 	return true;
 }
 
@@ -53,14 +51,12 @@ void CustomBuffer::Flush()
 
 bool CustomBuffer::Remove(size_t len)
 {
-	if(len > GetStoredSize())
-	// minsuk: if(len > GetStoredSize() <0) is correct as in line 41 and before
+	if(GetStoredSize() < len)
 	{
 		len = GetStoredSize();
 	}
 	m_EndPointer -= len;
 	memmove(GetBuffer(), GetBuffer() + len, GetStoredSize());
-
 	return true;
 }
 

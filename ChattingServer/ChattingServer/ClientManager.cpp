@@ -62,7 +62,6 @@ bool ClientManager::SendToAllClient(char* message, DWORD bytesTrans)
 		
 		auto clientSession = *iter;
 		ret = clientSession->SendToClient(message, bytesTrans);
-		// minsuk: check ret is still 'true' or any other value ?
 		if(!ret)
 		{
 			ret = false;

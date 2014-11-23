@@ -52,8 +52,7 @@ void CustomBuffer::Flush()
 
 bool CustomBuffer::Remove(size_t len)
 {
-	if(len > GetStoredSize())
-	// minsuk: only this line has different convention, (GetstoredSize() < len) ??
+	if(GetStoredSize() < len)
 	{
 		len = GetStoredSize();
 	}
