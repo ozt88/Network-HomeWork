@@ -202,10 +202,6 @@ void SendData(SOCKET socket, char* ct, char* fileName)
 	fclose(sendFile);
 }
 
-
-// minsuk: I Propose to move next function to util.cpp
-//     (and change the file nae perror.cpp or somehting like that)
-
 char* ContentType(char* file)
 {
 	char extension[BUF_SIZE] = {0, };
