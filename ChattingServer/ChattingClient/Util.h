@@ -49,3 +49,4 @@ void	Gotoxy(int x, int y);
 void	GetInput(OUT char** buffer);
 void	Hidecursor();
 void	ClearLine(int lineNum);
+bool	SafeStrToInt( OUT int* result , char* inputString );

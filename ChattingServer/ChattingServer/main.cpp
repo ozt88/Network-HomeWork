@@ -31,7 +31,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 	else
 	{
-		port = atoi((const char*)argv[1]);
+		if( !SafeStrToInt( &port , ( const char* )argv[1] ) )
+		{
+			return 1;
+		}
 	}
 
 	if(WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)

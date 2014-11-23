@@ -16,7 +16,7 @@ void				Log(char* message);
 void				PrintLogs();
 void				PrintInput(char* inputBuffer, int length);
 void				ErrorHandling(char* message, DWORD error);
-// minsuk: I dont recommend use <TAB> for spacing.. above lines show why.
+bool				SafeStrToInt( OUT int* result , const char* inputString );
 
 std::deque<char*> logs;
 CRITICAL_SECTION gCriticalSection;
@@ -45,25 +45,26 @@ int _tmain(int argc, _TCHAR* argv[])
 	else
 	{
 		ip = (const char*)argv[1];
-		port = atoi((const char*) argv[2]);
-		// minsuk: we need error processing here, if argv[2] is not the string format we want
+		if( !SafeStrToInt( &port , ( const char* )argv[2] ) )
+		{
+			return 1;
+		}
 	}
 
 	if(WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 	{
 		ErrorHandling("WSAStartup() error!", GetLastError());
-		exit(1);
+		return 1;
 	}
 
 	hServSock = socket(PF_INET, SOCK_STREAM, 0);
 	if(hServSock == INVALID_SOCKET)
 	{
 		ErrorHandling("socket() error!", GetLastError());
-		// minsuk: SOCKET ERROR !! should we exit() or return here? 
+		return 1;
 	}
 
 	memset(&servAddr, 0, sizeof(servAddr));
-	// minsuk: we dont need this all the fields we need are filled by next 3 lines
 	servAddr.sin_family = AF_INET;
 	servAddr.sin_addr.s_addr = inet_addr(ip);
 	servAddr.sin_port = htons(port);
@@ -71,7 +72,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if(connect(hServSock, (SOCKADDR*) &servAddr, sizeof(servAddr)) == SOCKET_ERROR)
 	{
 		ErrorHandling("connect() error!", GetLastError());
-		exit(1);
+		return 1;
 	}
 	else
 	{
@@ -83,14 +84,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	if(hSendThread == INVALID_HANDLE_VALUE)
 	{
 		ErrorHandling("_beginthreadex() : SendThread error!", GetLastError());
-		exit(1);
+		return 1;
 	}
 
 	hRecvThread = (HANDLE) _beginthreadex(NULL, 0, RecvThreadProc, (LPVOID) hServSock, 0, (unsigned*) &dwRecvThreadId);
 	if(hRecvThread == INVALID_HANDLE_VALUE)
 	{
 		ErrorHandling("_beginthreadex() : RecvThread error!", GetLastError());
-		exit(1);
+		return 1;
 	}
 
 	WaitForSingleObject(hSendThread, INFINITE);
@@ -152,13 +153,11 @@ unsigned int WINAPI SendThreadProc(LPVOID argv)
 	{
 		memset(message, 0, sizeof(char) * BUF_SIZE);
 		memset(inputBuffer, 0, sizeof(char)*BUF_SIZE);
-		// minsuk: we dont need above to lise to zero message and inputBuffer
 		inputSize = 0;
 		GetInput(inputBuffer, &inputSize);
 		messageSize = inputSize + 2;
 		MakeMessageHeader(inputBuffer, messageSize, PACKET_CHAT, message);
-		if(!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
-		// minsuk: why dont you use strcasecmp()?
+		if( !strcmp(message , "q\n") || !strcmp(message , "Q\n") ) 
 		{
 			break;
 		}
@@ -170,12 +169,12 @@ unsigned int WINAPI SendThreadProc(LPVOID argv)
 	}
 
 	return 0;
-	// minsuk: this functio always return 0, if it's as designed, why dont you use void function.
 }
 
 unsigned int WINAPI RecvThreadProc(LPVOID argv)
 {
 	SOCKET hServSock = (SOCKET) argv;
+	int ret = 0;
 	CustomBuffer packetBuffer(BUF_SIZE);
 	char* message = new char[BUF_SIZE];
 	unsigned short messageLength = 0;
@@ -185,13 +184,16 @@ unsigned int WINAPI RecvThreadProc(LPVOID argv)
 		memset(message, 0, sizeof(char)*BUF_SIZE);
 		GetPacketHeader(hServSock, &packetHeader);
 		messageLength = (unsigned char)(packetHeader.m_BytesTrans) - 2;
-		if(RecvMessage(hServSock, packetBuffer.GetBuffer(), messageLength) == SOCKET_ERROR)
-		// minsuk: we have to process if RecvMessage() returns 0 !!!! (normal close)
+		ret = RecvMessage( hServSock , packetBuffer.GetBuffer() , messageLength );
+		if(ret == SOCKET_ERROR)
 		{
 			ErrorHandling("RecvMessage(): error!", GetLastError());
 			getchar();
-			exit(1);
-			// minsuk: I'm not sure but, what happen in main, if a thread exit()
+			return 1;
+		}
+		else if( ret == 0 )
+		{
+			return 0;
 		}
 		packetBuffer.Commit(messageLength);
 		packetBuffer.Read(message, messageLength);
@@ -228,22 +230,21 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 			currentPointer--;
 			continue;
 		}
-		else if(0 < currentPointer && inputChar == 8) // backspace
-		// minsuk: if((currentPointer . 0) && (inputChar == '\b'))
+		else if( ( currentPointer > 0 ) && ( inputChar == '\b' ) ) // backspace
 		{
 			inputBuffer[--currentPointer] = '\0';
 		}
 		else if(inputChar == '\r')
 		{
 			ClearLine(MAX_PRINT_LINE);
+			inputBuffer[currentPointer++] = ' ';
 			inputBuffer[currentPointer] = '\0';
 			*inputPointer = currentPointer;
 			break;
 		}
 		else 
 		{
-			if(currentPointer != 0 && currentPointer%MAX_LENGTH_BY_LINE == 0) 
-			// minsuk: use () to clarify two conditions front and back of && as in line 231
+			if((currentPointer != 0 )&& (currentPointer%MAX_LENGTH_BY_LINE == 0)) 
 			{
 				inputBuffer[currentPointer++] = '\n';
 			}
@@ -305,4 +306,40 @@ void GetPacketHeader(SOCKET socket, OUT PacketHeader* header)
 		exit(1);
 	}
 	return;
+}
+
+bool SafeStrToInt( OUT int* result , const char* inputString )
+{
+	char errorMsg[BUF_SIZE] = { 0 , };
+	char *end = nullptr;
+	long value = 0;
+	bool ret = false;
+	value = strtol( inputString , &end , 20 );
+
+	if( end == inputString )
+	{
+		sprintf_s( errorMsg , "%s: not a decimal number\n" , inputString );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( '\0' != *end )
+	{
+		sprintf_s( errorMsg , "%s: extra characters at end of input: %s\n" , inputString , end );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( value > INT_MAX )
+	{
+		sprintf_s( errorMsg , "%ld greater than INT_MAX\n" , value );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( value < INT_MIN )
+	{
+		sprintf_s( errorMsg , "%ld less than INT_MIN\n" , value );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else
+	{
+		*result = ( int )value;
+		ret = true;
+	}
+	return ret;
 }

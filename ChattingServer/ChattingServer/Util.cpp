@@ -36,3 +36,39 @@ bool MakeMessageHeader(char* buffer, char bufferLength, char packetType, OUT cha
 	strcpy_s(message + 2, bufferLength, buffer);
 	return true;
 }
+
+bool SafeStrToInt( OUT int* result , const char* inputString )
+{
+	char errorMsg[BUF_SIZE] = { 0 , };
+	char *end = nullptr;
+	long value = 0;
+	bool ret = false;
+	value = strtol( inputString , &end , 20 );
+
+	if( end == inputString )
+	{
+		sprintf_s( errorMsg , "%s: not a decimal number\n" , inputString );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( '\0' != *end )
+	{
+		sprintf_s( errorMsg , "%s: extra characters at end of input: %s\n" , inputString , end );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( value > INT_MAX )
+	{
+		sprintf_s( errorMsg , "%ld greater than INT_MAX\n" , value );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else if( value < INT_MIN )
+	{
+		sprintf_s( errorMsg , "%ld less than INT_MIN\n" , value );
+		ErrorHandling( errorMsg , GetLastError() );
+	}
+	else
+	{
+		*result = ( int )value;
+		ret = true;
+	}
+	return ret;
+}
