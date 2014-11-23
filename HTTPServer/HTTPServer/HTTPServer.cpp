@@ -3,14 +3,13 @@
 
 #include "stdafx.h"
 #pragma comment(lib,"ws2_32.lib")
-#include "Util.h"
-
+#include "ErrorCode.h"
 
 unsigned WINAPI RequestHandler(void* argv);
 char* ContentType(char* file);
 void SendData(SOCKET sock, char* ct, char* fileName);
 void SendErrorMSG(SOCKET sock, ErrorCode errorCode);
-void ErrorHandling(char* message);
+void perror(char* message);
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -34,23 +33,23 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 	else
 	{
-		port = atoi((const char*) argv[1]);
-		// minsuk: we need error processing here, when argv[1] is not the number we want.
+		if( !SafeStrToInt( &port , ( const char* )argv[1] ) )
+		{
+			return 1;
+		}
 	}
 
 	if(WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 	{
-		ErrorHandling("WSAStartup() error!", GetLastError());
-		// minsuk: GetLastError() may return error code not the human readable, Error String
-		//      Error numbers are not helpfule to understand what happened.
-		//      so, please use perror() or something compatible in Windows.
-		exit(1);
+		perror( "WSAStartup() error!" );
+		return 1;
 	}
 
 	hServSock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if(hServSock == INVALID_SOCKET)
 	{
-		ErrorHandling("WSASocket() error!", GetLastError());
+		perror( "WSASocket() error!" );
+		return 1;
 	}
 
 	memset(&servAddr, 0, sizeof(servAddr));
@@ -60,14 +59,14 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	if(bind(hServSock, (SOCKADDR*) &servAddr, sizeof(servAddr)) == SOCKET_ERROR)
 	{
-		ErrorHandling("bind() error!", GetLastError());
-		exit(1);
+		perror( "bind() error!" );
+		return 1;
 	}
 
 	if(listen(hServSock, 5) == SOCKET_ERROR)
 	{
-		ErrorHandling("listen() error!", GetLastError());
-		exit(1);
+		perror( "listen() error!" );
+		return 1;
 	}
 
 	while(1)
@@ -76,7 +75,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		hClntSock = accept(hServSock, (SOCKADDR*) &clntAddr, &clntAddrLen);
 		if(hClntSock == INVALID_SOCKET)
 		{
-			ErrorHandling("accept() error!", GetLastError());
+			perror( "accept() error!" );
 			continue;
 		}
 		printf_s("Client Connected: IP=%s, PORT=%d\n", inet_ntoa(clntAddr.sin_addr), ntohs(clntAddr.sin_port));
@@ -84,7 +83,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		hThread = (HANDLE) _beginthreadex(NULL, 0, RequestHandler, (LPVOID)hClntSock, 0, (unsigned*)&dwThreadId);
 		if(hThread == INVALID_HANDLE_VALUE)
 		{
-			ErrorHandling("_beginthreadex() error!", GetLastError());
+			perror( "_beginthreadex() error!" );
 		}
 	}
 
@@ -102,16 +101,13 @@ unsigned int WINAPI RequestHandler(void* argv)
 	char ct[BUF_SMALL] = {0, };
 	char fileName[BUF_SMALL] = {0, };
 	DWORD ret = 0;
-	// minsuk: check the above strings and ret should be initialized here !!
 	
 	if(ret = recv(hClntSock, buf, BUF_SIZE, 0) == SOCKET_ERROR)
 	{
-		ErrorHandling("recv() error!", GetLastError());
+		perror( "recv() error!" );
 		return 1;
 	}
-	puts("recv() success");
-	// minusk: currently OK, this source assumes that all the request string is arrived one time.
-	//    but if we have 100K cliented in very limited server resource... it may not be true.
+
 	if(strstr(buf, "HTTP/") == NULL)
 	{
 		SendErrorMSG(hClntSock, ERROR_400_BAD_REQUEST);
@@ -128,48 +124,37 @@ unsigned int WINAPI RequestHandler(void* argv)
 	strcpy(fileName, strtok(NULL, " "));
 	memmove(fileName + 1, fileName, strlen(fileName));
 	fileName[0] = '.';
-	for(int i = 0; i < strlen(fileName) + 1; ++i)
-	// minsuk: I propose, for(int i = 0; i < strlen(fileName); i++)
+	for(int i = 0; i < strlen(fileName); ++i)
 	{
 		if(fileName[i] == '/')
 		{
 			fileName[i] = '\\';
 		}
-		// minsuk: did you check this Windows may allow '/' for directpry traversing
 	}
 
 	char* type = ContentType(fileName);
 	if(type == NULL)
 	{
 		SendErrorMSG(hClntSock, ERROR_404_NOT_FOUND);
-		closesocket(hClntSock);
-		return 0;
 	}
-
-	strcpy(ct, ContentType(fileName));
-	SendData(hClntSock, ct, fileName);
-	// minsuk: closesocket() should be here, or how about next code sequence?
-	
-	// char* type = ContentType(fileName);
-	// if(type == NULL)
-	//	SendErrorMSG(hClntSock, ERROR_404_NOT_FOUND);
-	// else {
-	//	strcpy(ct, ContentType(fileName));
-	//	SendData(hClntSock, ct, fileName);
-	// }
-	// closesocket(hClntSock);
+	else
+	{
+		strcpy( ct , ContentType( fileName ) );
+		SendData( hClntSock , ct , fileName );
+	}
+	closesocket( hClntSock );
 	return 0;
 }
 
 void SendData(SOCKET socket, char* ct, char* fileName)
 {
-	char protocol[] = "HTTP/1.0 200 OK\r\n";
-	char servName[] = "Server:simple web server\r\n";
-	char cntLen[BUF_SMALL];
-	char cntType[BUF_SMALL] = {0, };
-	char buf[BUF_SIZE] = {0, };
+	char  protocol[] = "HTTP/1.0 200 OK\r\n";
+	char  servName[] = "Server:simple web server\r\n";
+	char  cntLen[BUF_SMALL];
+	char  cntType[BUF_SMALL] = {0, };
+	char  buf[BUF_SIZE] = {0, };
 	FILE* sendFile;
-
+	int	  ret = 0;
 	sprintf_s(cntType, "Content-type:%s\r\n\r\n", ct);
 	if(( sendFile = fopen(fileName, "rb") ) == NULL)
 	{
@@ -185,106 +170,47 @@ void SendData(SOCKET socket, char* ct, char* fileName)
 	sprintf_s(cntLen, "Content-length : %d\r\n", fileSize);
 	if(send(socket, protocol, strlen(protocol), 0) == SOCKET_ERROR)
 	{
-		ErrorHandling("send(): protocol error!", GetLastError());
+		perror("send(): protocol error!");
 		return; 
 	}
 	if(send(socket, servName, strlen(servName), 0) == SOCKET_ERROR)
 	{
-		ErrorHandling("send():servName error!", GetLastError());
+		perror("send():servName error!");
 		return;
 	}
 	if(send(socket, cntType, strlen(cntType), 0) == SOCKET_ERROR)
 	{
-		ErrorHandling("send():cntType error!", GetLastError());
+		perror("send():cntType error!");
 		return;
 	}
 
 	while(!feof(sendFile))
 	{
 		int read = fread(buf, 1, BUF_SIZE, sendFile);
-		send(socket, buf, read, 0);
-		// minsuk: we should check the return value of send() function here
-		//    if this server system handles 10K connections... think what would happen.
+		int sendBytes = 0;
+		while( read > sendBytes )
+		{
+			ret = send( socket , buf + sendBytes , read - sendBytes , 0 );
+			if( ret == SOCKET_ERROR )
+			{
+				perror( "send() error!" );
+				return;
+			}
+			sendBytes += ret;
+		}
 	}
-
-	closesocket(socket);
-	// minsuk: closesocket() is better to be called in requesthandler() function
-	//                where the resource comes from
 	fclose(sendFile);
 }
 
 
 // minsuk: I Propose to move next function to util.cpp
-//     (and change the file nae errorhandling.cpp or somehting like that)
-
-void SendErrorMSG(SOCKET socket, ErrorCode errorCode )
-{
-	char protocol[BUF_SMALL] = {0, };
-	char cntLen[BUF_SMALL] = {0, };
-	char content[BUF_SIZE] = {0, };
-	char errorMessage[BUF_SMALL] = {0, };
-	switch(errorCode)
-	{
-		case ERROR_400_BAD_REQUEST:
-			strcpy(errorMessage, "400 Bad Request\r\n");
-			break;
-		case ERROR_404_NOT_FOUND:
-			strcpy(errorMessage, "404 Not Found\r\n");
-			break;
-		default:
-			strcpy(errorMessage, "400 Bad Request\r\n");
-			break;
-	}
-	// minsuk: why copy? suft string pointer is OK, char *errorMessagge; errorMessage = "...";
-	
-	// minsuk: error string is quite static - and can be defined in util.h
-	//         and change the file name util.h to errormsg.h or something like that
-	
-	char servName[] = "Server : simple web server\r\n";
-	char cntType[] = "Content-type:text/html\r\n\r\n";
-	sprintf_s(protocol, "HTTP/1.0 %s", errorMessage);
-	sprintf_s(content, "<html><head><title>NETWORK</title></head>"
-			  "<body><font size=+2><br>%s"
-			  "</font></body></html>", errorMessage);
-	sprintf_s(cntLen, "Content-length : %d\r\n", strlen(content));
-
-
-	if(send(socket, protocol, strlen(protocol), 0) == SOCKET_ERROR)
-	{
-		ErrorHandling("send():protocol error!", GetLastError());
-		return;
-	}
-	if(send(socket, servName, strlen(servName), 0) == SOCKET_ERROR)
-	{
-		ErrorHandling("send():cntType error!", GetLastError());
-		return;
-	}
-	if(send(socket, cntLen, strlen(cntLen), 0) == SOCKET_ERROR)
-	{
-		ErrorHandling("send():cntLen error!", GetLastError());
-		return;
-	}
-	if(send(socket, cntType, strlen(cntType), 0) == SOCKET_ERROR)
-	{
-		ErrorHandling("send():cntType error!", GetLastError());
-		return;
-	}
-	if(send(socket, content, strlen(content), 0) == SOCKET_ERROR)
-	{
-		ErrorHandling("send():content error!", GetLastError());
-		return;
-	}
-
-	closesocket(socket);
-	// minsuk: closesocket() is better to be called in requesthandler() function
-}
+//     (and change the file nae perror.cpp or somehting like that)
 
 char* ContentType(char* file)
 {
 	char extension[BUF_SIZE] = {0, };
 	char fileName[BUF_SMALL] = {0, };
-	// minsuk: we dont need to initialize two strings here
-	
+
 	char* ret = nullptr;
 	strcpy(fileName, file);
 	strtok(fileName, ".");
