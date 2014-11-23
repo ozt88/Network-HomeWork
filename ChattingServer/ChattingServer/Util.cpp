@@ -2,12 +2,11 @@
 #include "Util.h"
 
 
-void ErrorHandling(char* message, DWORD error)
+void ErrorHandling( char* message , DWORD error )
 {
-	char errorMessage[BUF_SIZE] = {0, };
-	sprintf_s(errorMessage, "%s\n error No: %d", message, error);
-	fputs(errorMessage, stderr);
-	fputc('\n', stderr);
+	char errorMessage[BUF_SIZE] = { 0 , };
+	sprintf_s( errorMessage , "%s\n error No: %d" , message , error );
+	perror( errorMessage );
 }
 
 bool GetMessageHeader(char* buffer, OUT DWORD* messageLength, OUT PacketType* packetType, OUT char** message)
@@ -63,7 +62,7 @@ bool SafeStrToInt( OUT int* result , const char* inputString )
 	else if( value < INT_MIN )
 	{
 		sprintf_s( errorMsg , "%ld less than INT_MIN\n" , value );
-		ErrorHandling( errorMsg , GetLastError() );
+		perror( errorMsg , GetLastError() );
 	}
 	else
 	{

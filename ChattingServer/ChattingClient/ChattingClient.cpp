@@ -16,7 +16,7 @@ void				Log(char* message);
 void				PrintLogs();
 void				PrintInput(char* inputBuffer, int length);
 void				ErrorHandling(char* message, DWORD error);
-bool				SafeStrToInt( OUT int* result , const char* inputString );
+bool                SafeStrToInt( OUT int* result , const char* inputString );
 
 std::deque<char*> logs;
 CRITICAL_SECTION gCriticalSection;
@@ -295,7 +295,8 @@ void ErrorHandling(char* message, DWORD error)
 {
 	char errorMessage[BUF_SIZE] = {0, };
 	sprintf_s(errorMessage, "%s error No: %d", message, error);
-	Log(errorMessage);
+	perror( errorMessage );
+	//Log(errorMessage);
 }
 
 void GetPacketHeader(SOCKET socket, OUT PacketHeader* header)
