@@ -1,4 +1,4 @@
-// ChattingClient.cpp : ÄÜ¼Ö ÀÀ¿ë ÇÁ·Î±×·¥¿¡ ´ëÇÑ ÁøÀÔÁ¡À» Á¤ÀÇÇÕ´Ï´Ù.
+// ChattingClient.cpp : ì½˜ì†” ì‘ìš© í”„ë¡œê·¸ë¨ì— ëŒ€í•œ ì§„ì…ì ì„ ì •ì˜í•©ë‹ˆë‹¤.
 //
 #include "stdafx.h"
 #include "Util.h"
@@ -16,6 +16,7 @@ void				Log(char* message);
 void				PrintLogs();
 void				PrintInput(char* inputBuffer, int length);
 void				ErrorHandling(char* message, DWORD error);
+// minsuk: I dont recommend use <TAB> for spacing.. above lines show why.
 
 std::deque<char*> logs;
 CRITICAL_SECTION gCriticalSection;
@@ -45,6 +46,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		ip = (const char*)argv[1];
 		port = atoi((const char*) argv[2]);
+		// minsuk: we need error processing here, if argv[2] is not the string format we want
 	}
 
 	if(WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -57,9 +59,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	if(hServSock == INVALID_SOCKET)
 	{
 		ErrorHandling("socket() error!", GetLastError());
+		// minsuk: SOCKET ERROR !! should we exit() or return here? 
 	}
 
 	memset(&servAddr, 0, sizeof(servAddr));
+	// minsuk: we dont need this all the fields we need are filled by next 3 lines
 	servAddr.sin_family = AF_INET;
 	servAddr.sin_addr.s_addr = inet_addr(ip);
 	servAddr.sin_port = htons(port);
@@ -148,11 +152,13 @@ unsigned int WINAPI SendThreadProc(LPVOID argv)
 	{
 		memset(message, 0, sizeof(char) * BUF_SIZE);
 		memset(inputBuffer, 0, sizeof(char)*BUF_SIZE);
+		// minsuk: we dont need above to lise to zero message and inputBuffer
 		inputSize = 0;
 		GetInput(inputBuffer, &inputSize);
 		messageSize = inputSize + 2;
 		MakeMessageHeader(inputBuffer, messageSize, PACKET_CHAT, message);
 		if(!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
+		// minsuk: why dont you use strcasecmp()?
 		{
 			break;
 		}
@@ -164,6 +170,7 @@ unsigned int WINAPI SendThreadProc(LPVOID argv)
 	}
 
 	return 0;
+	// minsuk: this functio always return 0, if it's as designed, why dont you use void function.
 }
 
 unsigned int WINAPI RecvThreadProc(LPVOID argv)
@@ -179,10 +186,12 @@ unsigned int WINAPI RecvThreadProc(LPVOID argv)
 		GetPacketHeader(hServSock, &packetHeader);
 		messageLength = (unsigned char)(packetHeader.m_BytesTrans) - 2;
 		if(RecvMessage(hServSock, packetBuffer.GetBuffer(), messageLength) == SOCKET_ERROR)
+		// minsuk: we have to process if RecvMessage() returns 0 !!!! (normal close)
 		{
 			ErrorHandling("RecvMessage(): error!", GetLastError());
 			getchar();
 			exit(1);
+			// minsuk: I'm not sure but, what happen in main, if a thread exit()
 		}
 		packetBuffer.Commit(messageLength);
 		packetBuffer.Read(message, messageLength);
@@ -220,6 +229,7 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 			continue;
 		}
 		else if(0 < currentPointer && inputChar == 8) // backspace
+		// minsuk: if((currentPointer . 0) && (inputChar == '\b'))
 		{
 			inputBuffer[--currentPointer] = '\0';
 		}
@@ -232,7 +242,8 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 		}
 		else 
 		{
-			if(currentPointer != 0 && currentPointer%MAX_LENGTH_BY_LINE == 0)
+			if(currentPointer != 0 && currentPointer%MAX_LENGTH_BY_LINE == 0) 
+			// minsuk: use () to clarify two conditions front and back of && as in line 231
 			{
 				inputBuffer[currentPointer++] = '\n';
 			}
@@ -244,6 +255,7 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 void PrintInput(char* inputBuffer, int length)
 {
 	Lock lock;
+	// minsuk: lock is not explicitly used
 	Gotoxy(1, MAX_PRINT_LINE);
 	printf_s("ME> %s%50c", inputBuffer, ' ', length);
 }
@@ -279,6 +291,7 @@ void Log(char* message)
 void ErrorHandling(char* message, DWORD error)
 {
 	char errorMessage[BUF_SIZE] = {0, };
+	// minsuk: we don't need to initialize, sprintf_s is enough
 	sprintf_s(errorMessage, "%s error No: %d", message, error);
 	Log(errorMessage);
 }
