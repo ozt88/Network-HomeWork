@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Util.h"
 
+// minsuk: All error related stuff should be here
+// and then I propose change file name to errorhandling.cpp or something like that.
 
 void ErrorHandling(char* message, DWORD error)
 {
