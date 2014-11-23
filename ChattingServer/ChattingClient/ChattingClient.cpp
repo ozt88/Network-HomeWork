@@ -255,21 +255,22 @@ void GetInput(char* inputBuffer, unsigned char* inputPointer)
 
 void PrintInput(char* inputBuffer, int length)
 {
-	Lock lock;
-	// minsuk: lock is not explicitly used
+	EnterCriticalSection( &gCriticalSection );
 	Gotoxy(1, MAX_PRINT_LINE);
 	printf_s("ME> %s%50c", inputBuffer, ' ', length);
+	LeaveCriticalSection( &gCriticalSection );
 }
 
 void PrintLogs()
 {
-	Lock lock;
+	EnterCriticalSection( &gCriticalSection );
 	for(int i = 0; i < logs.size(); ++i)
 	{
 		ClearLine(i + 1);
 		Gotoxy(0, i + 1);
 		printf_s("%s", logs[i], strlen(logs[i]));
 	}
+	LeaveCriticalSection( &gCriticalSection );
 }
 
 void Log(char* message)
@@ -278,7 +279,7 @@ void Log(char* message)
 	char* log = new char[length + 1];
 	memset(log, 0, sizeof(char)*(length + 1));
 	memcpy(log, message, length);
-	Lock lock;
+	EnterCriticalSection( &gCriticalSection );
 	logs.push_back(log);
 	if(logs.size() > MAX_PRINT_LINE)
 	{
@@ -287,12 +288,12 @@ void Log(char* message)
 		SafeDelete<char*>(delNode);
 	}
 	PrintLogs();
+	LeaveCriticalSection( &gCriticalSection );
 }
 
 void ErrorHandling(char* message, DWORD error)
 {
 	char errorMessage[BUF_SIZE] = {0, };
-	// minsuk: we don't need to initialize, sprintf_s is enough
 	sprintf_s(errorMessage, "%s error No: %d", message, error);
 	Log(errorMessage);
 }
